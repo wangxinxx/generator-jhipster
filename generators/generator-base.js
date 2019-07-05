@@ -502,6 +502,16 @@ module.exports = class extends PrivateBase {
     }
 
     /**
+     * Add a new load column to a Liquibase changelog file for entity.
+     *
+     * @param {string} filePath - The full path of the changelog file.
+     * @param {string} content - The content to be added as column, can have multiple columns as well
+     */
+    addLoadColumnToLiquibaseEntityChangeSet(filePath, content) {
+        this.needleApi.serverLiquibase.addLoadColumnToEntityChangeSet(filePath, content);
+    }
+
+    /**
      * Add a new changeset to a Liquibase changelog file for entity.
      *
      * @param {string} filePath - The full path of the changelog file.
@@ -682,6 +692,17 @@ module.exports = class extends PrivateBase {
      */
     addMavenPlugin(groupId, artifactId, version, other) {
         this.needleApi.serverMaven.addPlugin(groupId, artifactId, version, other);
+    }
+
+    /**
+     * Add a new annotation processor path to Maven compiler configuration.
+     *
+     * @param {string} groupId - plugin groupId
+     * @param {string} artifactId - plugin artifactId
+     * @param {string} version - explicit plugin version number
+     */
+    addMavenAnnotationProcessor(groupId, artifactId, version) {
+        this.needleApi.serverMaven.addAnnotationProcessor(groupId, artifactId, version);
     }
 
     /**
@@ -1106,7 +1127,7 @@ module.exports = class extends PrivateBase {
             context.fileData = this.fs.readJSON(fromPath);
         } catch (err) {
             this.debug('Error:', err);
-            this.error(chalk.red('\nThe entity configuration file could not be read!\n'));
+            this.error('\nThe entity configuration file could not be read!\n');
         }
         if (context.fileData.databaseType) {
             context.databaseType = context.fileData.databaseType;
@@ -1137,7 +1158,7 @@ module.exports = class extends PrivateBase {
             this.warning(`entityTableName is missing in .jhipster/${context.name}.json, using entity name as fallback`);
             context.entityTableName = this.getTableName(context.name);
         }
-        if (jhiCore.isReservedTableName(context.entityTableName, context.prodDatabaseType)) {
+        if (jhiCore.isReservedTableName(context.entityTableName, context.prodDatabaseType) && context.jhiPrefix) {
             context.entityTableName = `${context.jhiTablePrefix}_${context.entityTableName}`;
         }
         context.fields.forEach(field => {
@@ -1157,7 +1178,7 @@ module.exports = class extends PrivateBase {
         if (context.applicationType === 'gateway' && context.useMicroserviceJson) {
             context.microserviceName = context.fileData.microserviceName;
             if (!context.microserviceName) {
-                this.error(chalk.red('Microservice name for the entity is not found. Entity cannot be generated!'));
+                this.error('Microservice name for the entity is not found. Entity cannot be generated!');
             }
             context.microserviceAppName = this.getMicroserviceAppName(context.microserviceName);
             context.skipServer = true;
@@ -1424,7 +1445,7 @@ module.exports = class extends PrivateBase {
      * @param {string} msg - message to print
      */
     error(msg) {
-        this.env.error(`${chalk.red.bold('ERROR!')} ${msg}`);
+        this.env.error(`${msg}`);
     }
 
     /**
@@ -1854,7 +1875,7 @@ module.exports = class extends PrivateBase {
      * @param {any} dest - destination context to use default is context
      */
     setupSharedOptions(generator, context = generator, dest = context) {
-        dest.skipClient = !context.options['client-hook'] || context.configOptions.skipClient || context.config.get('skipClient');
+        dest.skipClient = context.options['client-hook'] === false || context.configOptions.skipClient || context.config.get('skipClient');
         dest.skipServer = context.configOptions.skipServer || context.config.get('skipServer');
         dest.skipUserManagement =
             context.configOptions.skipUserManagement || context.options['skip-user-management'] || context.config.get('skipUserManagement');
@@ -1886,9 +1907,6 @@ module.exports = class extends PrivateBase {
         dest.skipCommitHook = context.options['skip-commit-hook'] || context.config.get('skipCommitHook');
         dest.authenticationType =
             context.options.auth || context.configOptions.authenticationType || context.config.get('authenticationType');
-        if (dest.authenticationType === 'oauth2') {
-            dest.skipUserManagement = true;
-        }
         dest.serviceDiscoveryType = context.configOptions.serviceDiscoveryType || context.config.get('serviceDiscoveryType');
 
         dest.buildTool = context.configOptions.buildTool;
@@ -1899,6 +1917,9 @@ module.exports = class extends PrivateBase {
             generator.getDBTypeFromDBValue(dest.prodDatabaseType) ||
             context.configOptions.databaseType ||
             context.config.get('databaseType');
+        if (dest.authenticationType === 'oauth2' || dest.databaseType === 'no') {
+            dest.skipUserManagement = true;
+        }
         dest.searchEngine = context.config.get('searchEngine');
         dest.cacheProvider = context.config.get('cacheProvider') || context.config.get('hibernateCache') || 'no';
         dest.enableHibernateCache =
@@ -1974,7 +1995,12 @@ module.exports = class extends PrivateBase {
      * @param {boolean} force force getting direct from file
      */
     getAllJhipsterConfig(generator = this, force) {
-        return jhipsterUtils.getAllJhipsterConfig(generator, force);
+        const configRootPath =
+            generator.configRootPath ||
+            (generator.options && generator.options.configRootPath) ||
+            (generator.configOptions && generator.configOptions.configRootPath) ||
+            '';
+        return jhipsterUtils.getAllJhipsterConfig(generator, force, configRootPath);
     }
 
     /**

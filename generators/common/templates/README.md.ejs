@@ -228,7 +228,7 @@ Refer to [Doing API-First development][] for more details.
 
 To build the final jar and optimize the <%= baseName %> application for production, run:
 <% if (buildTool === 'maven') { %>
-    ./mvnw -Pprod clean package<% } %><% if (buildTool === 'gradle') { %>
+    ./mvnw -Pprod clean verify<% } %><% if (buildTool === 'gradle') { %>
     ./gradlew -Pprod clean bootJar<% } %>
 
 <%_ if (!skipClient) { _%>
@@ -247,14 +247,18 @@ Refer to [Using JHipster in production][] for more details.
 
 To package your application as a war in order to deploy it to an application server, run:
 <% if (buildTool === 'maven') { %>
-    ./mvnw -Pprod,war clean package<% } %><% if (buildTool === 'gradle') { %>
-    ./gradlew -Pprod clean bootWar<% } %>
+    ./mvnw -Pprod,war clean verify<% } %><% if (buildTool === 'gradle') { %>
+    ./gradlew -Pprod -Pwar clean bootWar<% } %>
 
 ## Testing
 
 To launch your application's tests, run:
 
-    <% if (buildTool === 'maven') { %>./mvnw clean test<% } else { %>./gradlew test<% } %>
+    <%_ if (buildTool === 'maven') { _%>
+    ./mvnw verify
+    <%_ } else { _%>
+    ./gradlew test integrationTest
+    <%_ } _%>
 <% if (!skipClient) { %>
 ### Client tests
 
@@ -280,11 +284,26 @@ Sonar is used to analyse code quality. You can start a local Sonar server (acces
 docker-compose -f src/main/docker/sonar.yml up -d
 ```
 
+You can run a Sonar analysis with using the [sonar-scanner](https://docs.sonarqube.org/display/SCAN/Analyzing+with+SonarQube+Scanner)<% if (buildTool) { %> or by using the <% if (buildTool === 'maven') { %>maven<% } %><% if (buildTool === 'gradle') { %>gradle<% } %> plugin<% } %>.
+
 Then, run a Sonar analysis:
 
+<%_ if (buildTool === 'maven') { _%>
 ```
-<% if (buildTool === 'maven') { %>./mvnw -Pprod clean test sonar:sonar<% } else { %>./gradlew -Pprod clean test sonarqube<% } %>
+./mvnw -Pprod clean verify sonar:sonar
 ```
+
+If you need to re-run the Sonar phase, please be sure to specify at least the `initialize` phase since Sonar properties are loaded from the sonar-project.properties file.
+
+```
+./mvnw initialize sonar:sonar
+```
+or
+<%_ } else if(buildTool === 'gradle') { _%>
+```
+./gradlew -Pprod clean check sonarqube
+```
+<%_ } _%>
 
 For more information, refer to the [Code quality page][].
 
@@ -303,7 +322,7 @@ To stop it and remove the container, run:
 You can also fully dockerize your application and all the services that it depends on.
 To achieve this, first build a docker image of your app by running:
 
-    <% if (buildTool === 'maven') { %>./mvnw package -Pprod verify jib:dockerBuild<% } %><% if (buildTool === 'gradle') { %>./gradlew bootJar -Pprod jibDockerBuild<% } %>
+    <% if (buildTool === 'maven') { %>./mvnw -Pprod verify jib:dockerBuild<% } %><% if (buildTool === 'gradle') { %>./gradlew bootJar -Pprod jibDockerBuild<% } %>
 
 Then run:
 
